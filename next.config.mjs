@@ -1,25 +1,21 @@
+// ✅ ESM-compatible Next.js config for Vercel alias resolution
+
+import { fileURLToPath } from "url";
 import path from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   webpack: (config) => {
-    // 👇 Enable the "@/..." import alias
+    // 👇 Explicitly resolve the "@" alias to project root
     config.resolve.alias["@"] = path.resolve(__dirname);
-
-    // (Optional) You can log resolved aliases during build for debugging
-    // console.log("Webpack alias @ →", path.resolve(__dirname));
-
     return config;
   },
-
   experimental: {
-    // Allow Server Actions (used in your API route)
-    serverActions: {
-      allowedOrigins: ["*"],
-    },
+    serverActions: { allowedOrigins: ["*"] },
   },
-
-  // Recommended production settings
   reactStrictMode: true,
   swcMinify: true,
 };
