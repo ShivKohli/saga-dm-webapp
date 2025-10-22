@@ -16,50 +16,52 @@ Keep paragraphs concise. Do not include code blocks.`;
 
 export async function POST(req: Request) {
   try {
+    console.log("Saga API: request received");
     const { history, userMessage } = await req.json();
 
-    const messages = [
-      { role: "system", content: systemPrompt },
-      ...(Array.isArray(history) ? history : []),
-      { role: "user", content: String(userMessage ?? "") }
-    ];
-
+    console.log("Calling OpenAI...");
     const comp = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: OPENAI_MODEL,
-        messages,
-        temperature: 0.9
-      })
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...(Array.isArray(history) ? history : []),
+          { role: "user", content: String(userMessage ?? "") },
+        ],
+        temperature: 0.9,
+      }),
     });
 
+    console.log("OpenAI status:", comp.status);
     if (!comp.ok) {
       const errText = await comp.text();
+      console.error("OpenAI error:", errText);
       return NextResponse.json({ error: "OpenAI error", detail: errText }, { status: 500 });
     }
 
     const completion = await comp.json();
     const assistantText: string = completion.choices?.[0]?.message?.content ?? "";
+    console.log("Assistant text:", assistantText.slice(0, 120));
 
-    // Extract voice segments
     const segments = extractVoiceSegments(assistantText);
+    console.log("Voice segments:", segments);
 
-    // Generate audio clips sequentially to preserve order
-    const clips: { character: string; url: string; voice_used?: string }[] = [];
+    const clips = [];
     for (const seg of segments) {
+      console.log("TTS for:", seg.character);
       const ttsRes = await fetch(SAGA_TTS_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ character: seg.character, text: seg.line })
+        body: JSON.stringify({ character: seg.character, text: seg.line }),
       });
+      console.log("TTS status:", ttsRes.status);
       if (!ttsRes.ok) {
-        const err = await ttsRes.text();
-        clips.push({ character: seg.character, url: "", voice_used: undefined });
-        console.error("TTS error:", err);
+        console.error("TTS error:", await ttsRes.text());
         continue;
       }
       const data = await ttsRes.json();
