@@ -1,4 +1,4 @@
-import { Chat } from "@/components/Chat";
+import Chat from "@/components/Chat";
 import { AudioProvider } from "@/components/AudioQueue";
 
 export default function Page() {
