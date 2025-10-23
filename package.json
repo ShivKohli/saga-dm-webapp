@@ -18,7 +18,7 @@
     "postcss": "^8.4.31",
     "autoprefixer": "^10.4.16"
     "openai": "^4.60.0",
-    "@supabase/supabase-js": "^2.45.0",
+    "@supabase/supabase-js": "^2.45.0"
   },
   "devDependencies": {
     "typescript": "^5.5.3",
