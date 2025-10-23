@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { extractVoiceSegments } from "@/lib/voices";
+import { queryKnowledgeBase } from "@/lib/vectorDB";   // 🧠 new import
+import OpenAI from "openai";
 
 export const runtime = "nodejs";
 
@@ -14,11 +16,29 @@ Example:
 [Voice: Nyra] "Halt! Who goes there?"
 Keep paragraphs concise. Do not include code blocks.`;
 
+// ────────────────────────────────────────────────
+// POST handler
+// ────────────────────────────────────────────────
 export async function POST(req: Request) {
   try {
     console.log("Saga API: request received");
     const { history, userMessage } = await req.json();
 
+    // 🧠 Step 1: Retrieve relevant lore/context from Supabase
+    console.log("Fetching context from Supabase...");
+    const matches = await queryKnowledgeBase(String(userMessage ?? ""));
+    const contextText = matches.map((m: any) => m.content).join("\n");
+    console.log(`Context retrieved (${matches.length} chunks)`);
+
+    // 🧠 Step 2: Build the full prompt with system + context
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "system", content: "Reference Context:\n" + contextText },
+      ...(Array.isArray(history) ? history : []),
+      { role: "user", content: String(userMessage ?? "") },
+    ];
+
+    // 🧩 Step 3: Call OpenAI API
     console.log("Calling OpenAI...");
     const comp = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -28,11 +48,7 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         model: OPENAI_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...(Array.isArray(history) ? history : []),
-          { role: "user", content: String(userMessage ?? "") },
-        ],
+        messages,
         temperature: 0.9,
       }),
     });
@@ -48,6 +64,7 @@ export async function POST(req: Request) {
     const assistantText: string = completion.choices?.[0]?.message?.content ?? "";
     console.log("Assistant text:", assistantText.slice(0, 120));
 
+    // 🗣️ Step 4: Extract voice segments & generate audio
     const segments = extractVoiceSegments(assistantText);
     console.log("Voice segments:", segments);
 
@@ -68,6 +85,7 @@ export async function POST(req: Request) {
       clips.push({ character: seg.character, url: data.audio_url, voice_used: data.voice_used });
     }
 
+    // 🪄 Step 5: Return both text and audio
     return NextResponse.json({ text: assistantText, clips });
   } catch (e: any) {
     console.error("Saga route error:", e);
