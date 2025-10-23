@@ -9,12 +9,7 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 const SAGA_TTS_URL = process.env.SAGA_TTS_URL ?? "https://saga-tts.vercel.app/tts";
 
-const systemPrompt = `You are Sága, an AI Dungeon Master. Be cinematic, fair, and immersive.
-Use D&D 5e logic. For any spoken narration or dialogue, include [Voice: CharacterName] before the sentence and wrap the sentence in quotes.
-Example:
-[Voice: Saga] "The torchlight flickers across the ruins."
-[Voice: Nyra] "Halt! Who goes there?"
-Keep paragraphs concise. Do not include code blocks.`;
+import { sagaSystemPrompt } from "@/lib/systemPrompt";
 
 // ────────────────────────────────────────────────
 // POST handler
@@ -32,7 +27,7 @@ export async function POST(req: Request) {
 
     // 🧠 Step 2: Build the full prompt with system + context
     const messages = [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: sagaSystemPrompt },
       { role: "system", content: "Reference Context:\n" + contextText },
       ...(Array.isArray(history) ? history : []),
       { role: "user", content: String(userMessage ?? "") },
