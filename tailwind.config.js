@@ -17,6 +17,16 @@ module.exports = {
           subtext: "#9CA3AF",     // secondary gray
           danger: "#B91C1C",
           success: "#22C55E",
+          bg: "#0B0B0D",          // backdrop (keep dark around the parchment)
+          panel: "#1A1A1E",       // card/panel bg
+          parchment: "#F5ECD6",   // 🪶 parchment background for messages
+          parchmentDark: "#E9DFC0", // alternate tone for variety
+          ink: "#2B2118",         // deep brown-black for text
+          accent: "#8B5CF6",      // keep your arcane purple accent
+          gold: "#C49A3E",        // decorative trim
+          subtext: "#9C8E72",     // muted brown-gray
+          danger: "#B91C1C",
+          success: "#22C55E",
         },
       },
       fontFamily: {
