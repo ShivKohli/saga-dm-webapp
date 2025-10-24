@@ -3,13 +3,14 @@ import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod"; // 🧱 Zod for validation
 import { limitRequest } from "@/lib/ratelimit"; // 🧱 Upstash rate limiter
+import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  env.SUPABASE_URL!,
+  env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 /* 🧩 Zod schema for file metadata */
