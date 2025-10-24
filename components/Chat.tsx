@@ -15,13 +15,13 @@ export default function Chat() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false); // 🆕 upload state
+  const [uploading, setUploading] = useState(false);
   const { enqueue, enabled, setEnabled, pause, resume, playing } = useAudioQueue();
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  // ───────────────────────────────────────────────
-  // 🧠 Send chat messages to Saga
-  // ───────────────────────────────────────────────
+  // ───────────────────────────────
+  // 🧠 Send chat message to Saga
+  // ───────────────────────────────
   const send = async () => {
     if (!input.trim() || loading) return;
     const userMsg: Msg = { role: "user", content: input.trim() };
@@ -32,15 +32,11 @@ export default function Chat() {
       const res = await fetch("/api/saga", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          history: messages,
-          userMessage: userMsg.content,
-        }),
+        body: JSON.stringify({ history: messages, userMessage: userMsg.content }),
       });
       const data = await res.json();
-      if (data?.text) {
+      if (data?.text)
         setMessages((m) => [...m, { role: "assistant", content: data.text }]);
-      }
       if (Array.isArray(data?.clips) && data.clips.length) {
         enqueue(
           data.clips.map((c: any) => ({
@@ -50,14 +46,14 @@ export default function Chat() {
           }))
         );
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error("Saga send error:", e);
       setMessages((m) => [
         ...m,
         {
           role: "assistant",
           content:
-            "The winds falter… I could not speak that line. Try again.",
+            "🌫️ The winds falter… I could not speak that line. Try again, adventurer.",
         },
       ]);
     } finally {
@@ -65,14 +61,13 @@ export default function Chat() {
     }
   };
 
-  // ───────────────────────────────────────────────
-  // 🧾 Handle Character Sheet Upload
-  // ───────────────────────────────────────────────
+  // ───────────────────────────────
+  // 📜 Upload Character Sheet
+  // ───────────────────────────────
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -92,18 +87,15 @@ export default function Chat() {
           content: `📜 I have received your character sheet **${file.name}** and will keep it in mind during our adventure.`,
         },
       ]);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Upload error:", err);
       setMessages((m) => [
         ...m,
-        {
-          role: "assistant",
-          content: "⚠️ I could not read that parchment. Try again, adventurer.",
-        },
+        { role: "assistant", content: "⚠️ I could not read that parchment. Try again." },
       ]);
     } finally {
       setUploading(false);
-      e.target.value = ""; // reset file input
+      e.target.value = "";
     }
   };
 
@@ -112,26 +104,30 @@ export default function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // ───────────────────────────────────────────────
-  // 💬 UI
-  // ───────────────────────────────────────────────
+  // ───────────────────────────────
+  // 💬 UI Rendering
+  // ───────────────────────────────
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <header className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold">Sága — AI Dungeon Master</h1>
-        <div className="flex items-center gap-3 text-sm">
+    <div className="w-full max-w-3xl mx-auto flex flex-col">
+      {/* Header */}
+      <header className="flex items-center justify-between mb-4 p-3 bg-saga-bg/80 border border-saga-accent/30 rounded-xl shadow-glow">
+        <h1 className="font-saga text-xl text-saga-accent">
+          Sága — AI Dungeon Master
+        </h1>
+        <div className="flex items-center gap-2 text-xs">
           <button
             className={clsx(
-              "px-3 py-1 rounded-md border",
-              enabled ? "border-green-500" : "border-gray-500"
+              "px-3 py-1 rounded-md border transition",
+              enabled
+                ? "border-saga-success text-saga-success hover:bg-saga-success/20"
+                : "border-saga-subtext text-saga-subtext hover:bg-saga-panel"
             )}
             onClick={() => setEnabled(!enabled)}
-            title={enabled ? "Sound enabled" : "Sound disabled"}
           >
             {enabled ? "Sound: ON" : "Sound: OFF"}
           </button>
           <button
-            className="px-3 py-1 rounded-md border border-gray-500"
+            className="px-3 py-1 rounded-md border border-saga-accent/30 hover:bg-saga-accent/20 transition"
             onClick={() => (playing ? pause() : resume())}
           >
             {playing ? "Pause" : "Resume"}
@@ -141,29 +137,40 @@ export default function Chat() {
               await fetch("/api/logout", { method: "POST" });
               window.location.href = "/";
             }}
-            className="px-3 py-1 rounded-md border border-red-500 text-red-400 hover:bg-red-500 hover:text-white transition"
+            className="px-3 py-1 rounded-md border border-saga-danger text-saga-danger hover:bg-saga-danger hover:text-saga-text transition"
           >
             Logout
           </button>
         </div>
       </header>
 
-      <div className="bg-saga.card rounded-2xl p-4 space-y-4 min-h-[60vh]">
+      {/* Message Area */}
+      <div className="flex-1 bg-saga-panel rounded-2xl p-4 space-y-4 border border-saga-accent/20 shadow-glow overflow-y-auto min-h-[60vh]">
         {messages.map((m, i) => (
           <div
             key={i}
-            className={m.role === "assistant" ? "text-saga.text" : "text-gray-300"}
+            className={clsx(
+              "p-3 rounded-lg whitespace-pre-wrap max-w-[90%]",
+              m.role === "assistant"
+                ? "bg-saga-bg/80 text-saga-text self-start border border-saga-accent/30 shadow-glow"
+                : "bg-saga-accent/20 text-saga-gold self-end border border-saga-accent/30 ml-auto"
+            )}
           >
-            <p className="whitespace-pre-wrap">{m.content}</p>
+            {m.content}
           </div>
         ))}
-        {loading && <p className="text-sm text-gray-400">Sága composes the next line…</p>}
+        {loading && (
+          <p className="text-sm text-saga-subtext italic">
+            Sága composes the next line…
+          </p>
+        )}
         <div ref={bottomRef} />
       </div>
 
-      {/* 🆕 Upload Button Section */}
-      <div className="mt-3 flex items-center gap-3">
-        <label className="cursor-pointer bg-gray-700 text-white px-3 py-2 rounded-md hover:bg-gray-600 text-sm">
+      {/* Upload + Input Controls */}
+      <div className="mt-4 flex flex-col sm:flex-row items-center gap-3">
+        {/* Upload */}
+        <label className="cursor-pointer btn-saga text-sm flex items-center gap-2">
           {uploading ? "Uploading..." : "📜 Upload Character Sheet"}
           <input
             type="file"
@@ -173,23 +180,28 @@ export default function Chat() {
             disabled={uploading}
           />
         </label>
-      </div>
 
-      <div className="mt-4 flex gap-2">
-        <input
-          className="flex-1 rounded-lg border border-gray-700 bg-transparent px-3 py-2 outline-none focus:border-saga.accent"
-          placeholder="Speak to Sága…"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && send()}
-        />
-        <button
-          onClick={send}
-          disabled={loading}
-          className="rounded-lg bg-saga.accent text-white px-4 py-2 disabled:opacity-50"
-        >
-          Send
-        </button>
+        {/* Input */}
+        <div className="flex w-full gap-2">
+          <input
+            className="
+              flex-1 rounded-lg border border-saga-accent/30 bg-saga-bg
+              px-3 py-2 outline-none focus:border-saga-accent
+              focus:ring-1 focus:ring-saga-accent placeholder-saga-subtext
+            "
+            placeholder="Speak to Sága…"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && send()}
+          />
+          <button
+            onClick={send}
+            disabled={loading}
+            className="btn-saga px-5 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Send
+          </button>
+        </div>
       </div>
     </div>
   );
