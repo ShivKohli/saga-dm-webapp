@@ -1,14 +1,15 @@
 // /lib/vectorDB.ts
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
+import { env } from "@/lib/env";
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
+  apiKey: env.OPENAI_API_KEY!,
 });
 
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY! // NOT the service role key — use anon for client-side access
+  env.SUPABASE_URL!,
+  env.SUPABASE_ANON_KEY! // NOT the service role key — use anon for client-side access
 );
 
 // Function to embed text using OpenAI
