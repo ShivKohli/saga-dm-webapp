@@ -136,6 +136,15 @@ export default function Chat() {
           >
             {playing ? "Pause" : "Resume"}
           </button>
+          <button
+            onClick={async () => {
+              await fetch("/api/logout", { method: "POST" });
+              window.location.href = "/";
+            }}
+            className="px-3 py-1 rounded-md border border-red-500 text-red-400 hover:bg-red-500 hover:text-white transition"
+          >
+            Logout
+          </button>
         </div>
       </header>
 
