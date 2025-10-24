@@ -19,9 +19,6 @@ export default function Chat() {
   const { enqueue, enabled, setEnabled, pause, resume, playing } = useAudioQueue();
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  // ───────────────────────────────
-  // 🧠 Send chat message to Saga
-  // ───────────────────────────────
   const send = async () => {
     if (!input.trim() || loading) return;
     const userMsg: Msg = { role: "user", content: input.trim() };
@@ -50,20 +47,13 @@ export default function Chat() {
       console.error("Saga send error:", e);
       setMessages((m) => [
         ...m,
-        {
-          role: "assistant",
-          content:
-            "🌫️ The winds falter… I could not speak that line. Try again, adventurer.",
-        },
+        { role: "assistant", content: "📜 The quill falters… Try again." },
       ]);
     } finally {
       setLoading(false);
     }
   };
 
-  // ───────────────────────────────
-  // 📜 Upload Character Sheet
-  // ───────────────────────────────
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -71,27 +61,23 @@ export default function Chat() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-
-      const res = await fetch("/api/upload-character", {
-        method: "POST",
-        body: formData,
-      });
-
+      const res = await fetch("/api/upload-character", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Upload failed");
-
       setMessages((m) => [
         ...m,
         {
           role: "assistant",
-          content: `📜 I have received your character sheet **${file.name}** and will keep it in mind during our adventure.`,
+          content: `📜 I have received your character sheet **${file.name}**.`,
         },
       ]);
-    } catch (err) {
-      console.error("Upload error:", err);
+    } catch {
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: "⚠️ I could not read that parchment. Try again." },
+        {
+          role: "assistant",
+          content: "⚠️ The parchment was unreadable. Try again, adventurer.",
+        },
       ]);
     } finally {
       setUploading(false);
@@ -99,21 +85,15 @@ export default function Chat() {
     }
   };
 
-  // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // ───────────────────────────────
-  // 💬 UI Rendering
-  // ───────────────────────────────
   return (
-    <div className="w-full max-w-3xl mx-auto flex flex-col">
+    <div className="w-full max-w-3xl mx-auto flex flex-col font-ui">
       {/* Header */}
-      <header className="flex items-center justify-between mb-4 p-3 bg-saga-bg/80 border border-saga-accent/30 rounded-xl shadow-glow">
-        <h1 className="font-saga text-xl text-saga-accent">
-          Sága — AI Dungeon Master
-        </h1>
+      <header className="flex items-center justify-between mb-4 p-3 bg-saga-bg/80 border border-saga-gold/30 rounded-xl shadow-glow">
+        <h1 className="font-saga text-xl text-saga-gold tracking-wide">Sága DM</h1>
         <div className="flex items-center gap-2 text-xs">
           <button
             className={clsx(
@@ -124,10 +104,10 @@ export default function Chat() {
             )}
             onClick={() => setEnabled(!enabled)}
           >
-            {enabled ? "Sound: ON" : "Sound: OFF"}
+            {enabled ? "Sound ON" : "Sound OFF"}
           </button>
           <button
-            className="px-3 py-1 rounded-md border border-saga-accent/30 hover:bg-saga-accent/20 transition"
+            className="px-3 py-1 rounded-md border border-saga-gold/40 hover:bg-saga-gold/20 transition"
             onClick={() => (playing ? pause() : resume())}
           >
             {playing ? "Pause" : "Resume"}
@@ -137,7 +117,7 @@ export default function Chat() {
               await fetch("/api/logout", { method: "POST" });
               window.location.href = "/";
             }}
-            className="px-3 py-1 rounded-md border border-saga-danger text-saga-danger hover:bg-saga-danger hover:text-saga-text transition"
+            className="px-3 py-1 rounded-md border border-saga-danger text-saga-danger hover:bg-saga-danger hover:text-saga-parchment transition"
           >
             Logout
           </button>
@@ -145,15 +125,15 @@ export default function Chat() {
       </header>
 
       {/* Message Area */}
-      <div className="flex-1 bg-saga-panel rounded-2xl p-4 space-y-4 border border-saga-accent/20 shadow-glow overflow-y-auto min-h-[60vh]">
+      <div className="flex-1 bg-saga-panel rounded-2xl p-4 space-y-4 border border-saga-gold/20 shadow-glow overflow-y-auto min-h-[60vh]">
         {messages.map((m, i) => (
           <div
             key={i}
             className={clsx(
               "p-3 rounded-lg whitespace-pre-wrap max-w-[90%]",
               m.role === "assistant"
-                ? "bg-saga-bg/80 text-saga-text self-start border border-saga-accent/30 shadow-glow"
-                : "bg-saga-accent/20 text-saga-gold self-end border border-saga-accent/30 ml-auto"
+                ? "bg-saga-parchment text-saga-ink border border-saga-gold/40 shadow-md self-start"
+                : "bg-saga-parchmentDark text-saga-ink font-semibold border border-saga-gold/30 self-end ml-auto"
             )}
           >
             {m.content}
@@ -161,17 +141,16 @@ export default function Chat() {
         ))}
         {loading && (
           <p className="text-sm text-saga-subtext italic">
-            Sága composes the next line…
+            Sága dips her quill in ink…
           </p>
         )}
         <div ref={bottomRef} />
       </div>
 
-      {/* Upload + Input Controls */}
+      {/* Upload & Input */}
       <div className="mt-4 flex flex-col sm:flex-row items-center gap-3">
-        {/* Upload */}
-        <label className="cursor-pointer btn-saga text-sm flex items-center gap-2">
-          {uploading ? "Uploading..." : "📜 Upload Character Sheet"}
+        <label className="cursor-pointer bg-saga-gold/20 text-saga-gold px-3 py-2 rounded-md border border-saga-gold/40 hover:bg-saga-gold/30 transition text-sm">
+          {uploading ? "Uploading…" : "📜 Upload Character Sheet"}
           <input
             type="file"
             accept=".pdf,.txt,.docx"
@@ -181,15 +160,15 @@ export default function Chat() {
           />
         </label>
 
-        {/* Input */}
         <div className="flex w-full gap-2">
           <input
             className="
-              flex-1 rounded-lg border border-saga-accent/30 bg-saga-bg
-              px-3 py-2 outline-none focus:border-saga-accent
-              focus:ring-1 focus:ring-saga-accent placeholder-saga-subtext
+              flex-1 rounded-lg border border-saga-gold/40
+              bg-saga-parchment px-3 py-2 outline-none
+              focus:border-saga-gold focus:ring-1 focus:ring-saga-gold
+              placeholder-saga-subtext text-saga-ink
             "
-            placeholder="Speak to Sága…"
+            placeholder='Speak to Sága…'
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && send()}
@@ -197,7 +176,7 @@ export default function Chat() {
           <button
             onClick={send}
             disabled={loading}
-            className="btn-saga px-5 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-saga-gold text-saga-ink font-semibold px-5 py-2 rounded-lg hover:bg-saga-gold/80 disabled:opacity-50 transition"
           >
             Send
           </button>
