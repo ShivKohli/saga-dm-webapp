@@ -39,3 +39,18 @@ export async function queryKnowledgeBase(query: string, matchThreshold = 0.8, ma
 
   return data || [];
 }
+
+// 🧩 Retrieve all uploaded character sheets (basic version)
+export async function getPlayerSheets() {
+  const { data, error } = await supabase
+    .from("player_sheets")
+    .select("id, filename, content")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("❌ Error fetching player sheets:", error);
+    return [];
+  }
+
+  return data || [];
+}
