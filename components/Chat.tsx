@@ -7,7 +7,7 @@ type Msg = { role: "user" | "assistant"; content: string };
 
 export default function Chat() {
   const [messages, setMessages] = useState<Msg[]>([
-    { role: "assistant", content: "Welcome, adventurers. I am Sága. Introduce your heroes (1–4), then we shall begin." }
+    { role: "assistant", content: "Welcome, adventurers. I am Sága, the AI Dungeon Master — keeper of all stories ever told, and those yet to unfold.\nTell me how many heroes stand before me (1–4), and have each introduce themselves:\nName, Race, Class, Brief Backstory, Current HP, and Starting Items.\nWhen all have spoken, I shall inscribe your names in the Book of Lore and begin your adventure." }
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
