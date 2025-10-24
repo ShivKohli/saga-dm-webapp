@@ -4,13 +4,14 @@ import { extractVoiceSegments } from "@/lib/voices";
 import { queryKnowledgeBase, getPlayerSheets } from "@/lib/vectorDB";
 import { sagaSystemPrompt } from "@/lib/systemPrompt";
 import { limitRequest } from "@/lib/ratelimit"; // 🧱 Upstash rate limiter
+import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
-const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+const OPENAI_API_KEY = env.OPENAI_API_KEY!;
+const OPENAI_MODEL = env.OPENAI_MODEL ?? "gpt-4o-mini";
 const SAGA_TTS_URL =
-  process.env.SAGA_TTS_URL ?? "https://saga-tts.vercel.app/tts";
+  env.SAGA_TTS_URL ?? "https://saga-tts.vercel.app/tts";
 
 /* 🧩 Zod schema for validating incoming requests */
 const SagaSchema = z.object({
