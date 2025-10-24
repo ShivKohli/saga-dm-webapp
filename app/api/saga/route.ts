@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { z } from "zod"; // 🧱 Zod for input validation
 import { extractVoiceSegments } from "@/lib/voices";
 import { queryKnowledgeBase, getPlayerSheets } from "@/lib/vectorDB";
 import { sagaSystemPrompt } from "@/lib/systemPrompt";
-import { limitRequest } from "@/lib/ratelimit"; // 🆕 import rate limiter
+import { limitRequest } from "@/lib/ratelimit"; // 🧱 Upstash rate limiter
 
 export const runtime = "nodejs";
 
@@ -11,9 +12,24 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 const SAGA_TTS_URL =
   process.env.SAGA_TTS_URL ?? "https://saga-tts.vercel.app/tts";
 
+/* 🧩 Zod schema for validating incoming requests */
+const SagaSchema = z.object({
+  history: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().min(1),
+      })
+    )
+    .default([]),
+  userMessage: z.string().min(1, "User message cannot be empty"),
+});
+
 export async function POST(req: Request) {
   try {
-    // 🧱 RATE-LIMIT CHECK ─────────────────────────────
+    /* ───────────────────────────────────────────────
+       🧱 RATE-LIMIT CHECK (Upstash Redis)
+    ─────────────────────────────────────────────── */
     const ip =
       req.headers.get("x-forwarded-for") ||
       req.headers.get("x-real-ip") ||
@@ -32,18 +48,38 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log(
-      `📨 Saga API: request received (remaining ${remaining} for ${ip})`
-    );
+    console.log(`📨 Saga API request received (${remaining} remaining for ${ip})`);
 
-    // 🧠 STEP 1: Fetch contextual lore or rules from Supabase
+    /* ───────────────────────────────────────────────
+       🧩 VALIDATE REQUEST BODY (Zod)
+    ─────────────────────────────────────────────── */
+    const body = await req.json();
+    const parsed = SagaSchema.safeParse(body);
+
+    if (!parsed.success) {
+      console.warn("⚠️ Invalid Saga request:", parsed.error.flatten());
+      return NextResponse.json(
+        {
+          error: "Invalid payload format.",
+          details: parsed.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const { history, userMessage } = parsed.data;
+
+    /* ───────────────────────────────────────────────
+       🧠 STEP 1: Fetch contextual lore from Supabase
+    ─────────────────────────────────────────────── */
     console.log("🔍 Fetching context from Supabase...");
-    const { history, userMessage } = await req.json();
     const matches = await queryKnowledgeBase(String(userMessage ?? ""));
     const contextText = matches.map((m: any) => m.content).join("\n");
     console.log(`✅ Retrieved ${matches.length} relevant context chunks`);
 
-    // 🧝‍♀️ STEP 2: Retrieve any uploaded player sheets
+    /* ───────────────────────────────────────────────
+       🧝 STEP 2: Load uploaded player sheets
+    ─────────────────────────────────────────────── */
     console.log("📜 Fetching uploaded character sheets...");
     const playerSheets = await getPlayerSheets();
     const sheetContext = playerSheets
@@ -54,7 +90,9 @@ export async function POST(req: Request) {
       .join("\n\n");
     console.log(`✅ Loaded ${playerSheets.length} player sheet(s)`);
 
-    // 🧩 STEP 3: Build the chat prompt
+    /* ───────────────────────────────────────────────
+       🧩 STEP 3: Build the system + user prompt
+    ─────────────────────────────────────────────── */
     const messages = [
       { role: "system", content: sagaSystemPrompt },
       { role: "system", content: "Player Character Sheets:\n" + sheetContext },
@@ -63,7 +101,9 @@ export async function POST(req: Request) {
       { role: "user", content: String(userMessage ?? "") },
     ];
 
-    // 🧠 STEP 4: Call OpenAI Chat API
+    /* ───────────────────────────────────────────────
+       🤖 STEP 4: Call OpenAI Chat Completion API
+    ─────────────────────────────────────────────── */
     console.log("🤖 Calling OpenAI...");
     const completion = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -89,13 +129,14 @@ export async function POST(req: Request) {
 
     const data = await completion.json();
     const assistantText: string = data.choices?.[0]?.message?.content ?? "";
-    console.log("🧾 Assistant output:", assistantText.slice(0, 100));
+    console.log("🧾 Assistant output:", assistantText.slice(0, 120));
 
-    // 🗣️ STEP 5: Parse voice segments
+    /* ───────────────────────────────────────────────
+       🎙️ STEP 5: Parse and generate TTS voice clips
+    ─────────────────────────────────────────────── */
     const segments = extractVoiceSegments(assistantText);
     console.log("🎙️ Voice segments found:", segments.length);
 
-    // 🔊 STEP 6: Generate TTS clips sequentially
     const clips = [];
     for (const seg of segments) {
       console.log(`🔊 Generating TTS for: ${seg.character}`);
@@ -118,7 +159,9 @@ export async function POST(req: Request) {
       });
     }
 
-    // ✅ STEP 7: Return both text and generated audio clips
+    /* ───────────────────────────────────────────────
+       ✅ STEP 6: Return text + audio clip URLs
+    ─────────────────────────────────────────────── */
     return NextResponse.json({ text: assistantText, clips });
   } catch (e: any) {
     console.error("💥 Saga route error:", e);
