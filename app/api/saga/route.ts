@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { extractVoiceSegments } from "@/lib/voices";
-import { queryKnowledgeBase, getPlayerSheets } from "@/lib/vectorDB"; // ✅ merged import
+import { queryKnowledgeBase, getPlayerSheets } from "@/lib/vectorDB";
 import { sagaSystemPrompt } from "@/lib/systemPrompt";
+import { limitRequest } from "@/lib/ratelimit"; // 🆕 import rate limiter
 
 export const runtime = "nodejs";
 
@@ -12,11 +13,32 @@ const SAGA_TTS_URL =
 
 export async function POST(req: Request) {
   try {
-    console.log("📨 Saga API: request received");
-    const { history, userMessage } = await req.json();
+    // 🧱 RATE-LIMIT CHECK ─────────────────────────────
+    const ip =
+      req.headers.get("x-forwarded-for") ||
+      req.headers.get("x-real-ip") ||
+      "anonymous";
+
+    const { success, remaining } = await limitRequest(ip.toString());
+
+    if (!success) {
+      console.warn(`🚫 Rate limit exceeded for IP: ${ip}`);
+      return NextResponse.json(
+        {
+          error:
+            "⏳ Too many requests. Please wait a moment before speaking again.",
+        },
+        { status: 429 }
+      );
+    }
+
+    console.log(
+      `📨 Saga API: request received (remaining ${remaining} for ${ip})`
+    );
 
     // 🧠 STEP 1: Fetch contextual lore or rules from Supabase
     console.log("🔍 Fetching context from Supabase...");
+    const { history, userMessage } = await req.json();
     const matches = await queryKnowledgeBase(String(userMessage ?? ""));
     const contextText = matches.map((m: any) => m.content).join("\n");
     console.log(`✅ Retrieved ${matches.length} relevant context chunks`);
@@ -32,7 +54,7 @@ export async function POST(req: Request) {
       .join("\n\n");
     console.log(`✅ Loaded ${playerSheets.length} player sheet(s)`);
 
-    // 🧩 STEP 3: Build the chat prompt (system + sheets + lore + user)
+    // 🧩 STEP 3: Build the chat prompt
     const messages = [
       { role: "system", content: sagaSystemPrompt },
       { role: "system", content: "Player Character Sheets:\n" + sheetContext },
