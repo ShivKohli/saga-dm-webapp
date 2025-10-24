@@ -1,24 +1,23 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createMiddlewareClient } from "@supabase/ssr";
 
 export async function middleware(req: NextRequest) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const res = NextResponse.next();
+
+  // Create a Supabase client that can read auth cookies
+  const supabase = createMiddlewareClient({ req, res });
 
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
-  const url = req.nextUrl.clone();
-
-  // If not logged in and trying to access /play
-  if (!session && url.pathname.startsWith("/play")) {
-    url.pathname = "/";
-    return NextResponse.redirect(url);
+  // Protect /play
+  if (!session && req.nextUrl.pathname.startsWith("/play")) {
+    const redirectUrl = req.nextUrl.clone();
+    redirectUrl.pathname = "/";
+    return NextResponse.redirect(redirectUrl);
   }
 
-  return NextResponse.next();
+  return res;
 }
