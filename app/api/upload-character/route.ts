@@ -1,26 +1,26 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
-import pdf from "pdf-parse";
-import mammoth from "mammoth"; // for .docx extraction
 
 export const runtime = "nodejs";
 
-// Initialize clients
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const supabase = createClient(
   process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // backend-only key
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;
-
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
+
+    // 🧠 Lazy-load pdf-parse and mammoth ONLY at runtime
+    const pdf = await import("pdf-parse");
+    const mammoth = await import("mammoth");
 
     console.log(`📥 Received file: ${file.name} (${file.type})`);
 
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
     // Extract text depending on file type
     if (file.name.endsWith(".pdf")) {
-      const pdfData = await pdf(buffer);
+      const pdfData = await pdf.default(buffer);
       text = pdfData.text;
     } else if (file.name.endsWith(".docx")) {
       const result = await mammoth.extractRawText({ buffer });
@@ -53,17 +53,15 @@ export async function POST(req: Request) {
 
     console.log(`🧠 Extracted ${text.length} characters from ${file.name}`);
 
-    // Limit to 8000 characters for embedding efficiency
     const truncated = text.slice(0, 8000);
 
-    // Create embedding
     const embedRes = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: truncated,
     });
+
     const embedding = embedRes.data[0].embedding;
 
-    // Insert into Supabase table
     const { data, error } = await supabase
       .from("player_sheets")
       .insert({
@@ -76,7 +74,10 @@ export async function POST(req: Request) {
 
     if (error) {
       console.error("❌ Supabase insert error:", error);
-      return NextResponse.json({ error: "Failed to save to Supabase" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to save to Supabase" },
+        { status: 500 }
+      );
     }
 
     console.log(`✅ Uploaded and embedded: ${file.name}`);
