@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { extractVoiceSegments } from "@/lib/voices";
-import { queryKnowledgeBase } from "@/lib/vectorDB";
+import { queryKnowledgeBase, getPlayerSheets } from "@/lib/vectorDB"; // ✅ merged import
 import { sagaSystemPrompt } from "@/lib/systemPrompt";
-import { queryKnowledgeBase, getPlayerSheets } from "@/lib/vectorDB";
 
 export const runtime = "nodejs";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
-const SAGA_TTS_URL = process.env.SAGA_TTS_URL ?? "https://saga-tts.vercel.app/tts";
+const SAGA_TTS_URL =
+  process.env.SAGA_TTS_URL ?? "https://saga-tts.vercel.app/tts";
 
 export async function POST(req: Request) {
   try {
@@ -21,15 +21,27 @@ export async function POST(req: Request) {
     const contextText = matches.map((m: any) => m.content).join("\n");
     console.log(`✅ Retrieved ${matches.length} relevant context chunks`);
 
-    // 🧩 STEP 2: Build the chat prompt (system + context + user history)
+    // 🧝‍♀️ STEP 2: Retrieve any uploaded player sheets
+    console.log("📜 Fetching uploaded character sheets...");
+    const playerSheets = await getPlayerSheets();
+    const sheetContext = playerSheets
+      .map(
+        (s) =>
+          `Character Sheet: ${s.filename}\n──────────────────────\n${s.content}`
+      )
+      .join("\n\n");
+    console.log(`✅ Loaded ${playerSheets.length} player sheet(s)`);
+
+    // 🧩 STEP 3: Build the chat prompt (system + sheets + lore + user)
     const messages = [
       { role: "system", content: sagaSystemPrompt },
+      { role: "system", content: "Player Character Sheets:\n" + sheetContext },
       { role: "system", content: "Reference Context:\n" + contextText },
       ...(Array.isArray(history) ? history : []),
       { role: "user", content: String(userMessage ?? "") },
     ];
 
-    // 🧠 STEP 3: Call OpenAI Chat API
+    // 🧠 STEP 4: Call OpenAI Chat API
     console.log("🤖 Calling OpenAI...");
     const completion = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -47,18 +59,21 @@ export async function POST(req: Request) {
     if (!completion.ok) {
       const errText = await completion.text();
       console.error("❌ OpenAI API error:", errText);
-      return NextResponse.json({ error: "OpenAI API error", detail: errText }, { status: 500 });
+      return NextResponse.json(
+        { error: "OpenAI API error", detail: errText },
+        { status: 500 }
+      );
     }
 
     const data = await completion.json();
     const assistantText: string = data.choices?.[0]?.message?.content ?? "";
     console.log("🧾 Assistant output:", assistantText.slice(0, 100));
 
-    // 🗣️ STEP 4: Parse voice segments
+    // 🗣️ STEP 5: Parse voice segments
     const segments = extractVoiceSegments(assistantText);
     console.log("🎙️ Voice segments found:", segments.length);
 
-    // 🔊 STEP 5: Generate TTS clips sequentially
+    // 🔊 STEP 6: Generate TTS clips sequentially
     const clips = [];
     for (const seg of segments) {
       console.log(`🔊 Generating TTS for: ${seg.character}`);
@@ -81,10 +96,13 @@ export async function POST(req: Request) {
       });
     }
 
-    // ✅ STEP 6: Return both text and generated audio clips
+    // ✅ STEP 7: Return both text and generated audio clips
     return NextResponse.json({ text: assistantText, clips });
   } catch (e: any) {
     console.error("💥 Saga route error:", e);
-    return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message ?? "Unknown error" },
+      { status: 500 }
+    );
   }
 }
