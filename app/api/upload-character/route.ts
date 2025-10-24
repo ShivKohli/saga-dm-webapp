@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
+import { limitRequest } from "@/lib/ratelimit"; // 🆕 add rate limiter
 
 export const runtime = "nodejs";
 
@@ -12,17 +13,57 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
   try {
+    // 🧱 RATE-LIMIT CHECK ────────────────────────────────
+    const ip =
+      req.headers.get("x-forwarded-for") ||
+      req.headers.get("x-real-ip") ||
+      "anonymous";
+
+    const { success, remaining } = await limitRequest(ip.toString());
+
+    if (!success) {
+      console.warn(`🚫 Upload rate limit exceeded for IP: ${ip}`);
+      return NextResponse.json(
+        {
+          error:
+            "📜 Slow down, adventurer! You are uploading too many parchments too quickly.",
+        },
+        { status: 429 }
+      );
+    }
+
+    console.log(`📨 Upload request received (remaining ${remaining} for ${ip})`);
+
+    // 🧾 Parse uploaded form data
     const formData = await req.formData();
     const file = formData.get("file") as File;
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    // 🧠 Lazy-load pdf-parse and mammoth ONLY at runtime
+    console.log(`📥 Received file: ${file.name} (${file.type})`);
+
+    // 🛡️ FILE VALIDATION ────────────────────────────────
+    const MAX_MB = 10;
+    const allowedExt = /\.(pdf|docx|txt)$/i;
+
+    if (!allowedExt.test(file.name)) {
+      return NextResponse.json(
+        { error: "Unsupported file type. Please upload PDF, DOCX, or TXT." },
+        { status: 400 }
+      );
+    }
+
+    if (file.size > MAX_MB * 1024 * 1024) {
+      return NextResponse.json(
+        { error: `File too large (max ${MAX_MB}MB).` },
+        { status: 413 }
+      );
+    }
+
+    // 🧠 Lazy-load pdf-parse and mammoth ONLY when needed
     const pdf = await import("pdf-parse");
     const mammoth = await import("mammoth");
-
-    console.log(`📥 Received file: ${file.name} (${file.type})`);
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -37,11 +78,6 @@ export async function POST(req: Request) {
       text = result.value;
     } else if (file.name.endsWith(".txt")) {
       text = buffer.toString("utf8");
-    } else {
-      return NextResponse.json(
-        { error: "Unsupported file type. Please upload PDF, DOCX, or TXT." },
-        { status: 400 }
-      );
     }
 
     if (!text.trim()) {
@@ -53,8 +89,10 @@ export async function POST(req: Request) {
 
     console.log(`🧠 Extracted ${text.length} characters from ${file.name}`);
 
+    // 🔍 Truncate overly long text to keep embeddings under token limit
     const truncated = text.slice(0, 8000);
 
+    // 🧬 Generate embedding
     const embedRes = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: truncated,
@@ -62,6 +100,7 @@ export async function POST(req: Request) {
 
     const embedding = embedRes.data[0].embedding;
 
+    // 🗃️ Insert into Supabase
     const { data, error } = await supabase
       .from("player_sheets")
       .insert({
