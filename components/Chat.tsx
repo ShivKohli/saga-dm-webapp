@@ -43,8 +43,7 @@ export default function Chat() {
           }))
         );
       }
-    } catch (e) {
-      console.error("Saga send error:", e);
+    } catch {
       setMessages((m) => [
         ...m,
         { role: "assistant", content: "📜 The quill falters… Try again." },
@@ -66,10 +65,7 @@ export default function Chat() {
       if (!res.ok) throw new Error(data?.error || "Upload failed");
       setMessages((m) => [
         ...m,
-        {
-          role: "assistant",
-          content: `📜 I have received your character sheet **${file.name}**.`,
-        },
+        { role: "assistant", content: `📜 I have received **${file.name}**.` },
       ]);
     } catch {
       setMessages((m) => [
@@ -91,56 +87,69 @@ export default function Chat() {
 
   return (
     <div className="w-full max-w-3xl mx-auto flex flex-col font-ui">
-      {/* Header */}
-      <header className="flex items-center justify-between mb-4 p-3 bg-saga-bg/80 border border-saga-gold/30 rounded-xl shadow-glow">
-        <h1 className="font-saga text-xl text-saga-gold tracking-wide">Sága DM</h1>
-        <div className="flex items-center gap-2 text-xs">
-          <button
-            className={clsx(
-              "px-3 py-1 rounded-md border transition",
-              enabled
-                ? "border-saga-success text-saga-success hover:bg-saga-success/20"
-                : "border-saga-subtext text-saga-subtext hover:bg-saga-panel"
-            )}
-            onClick={() => setEnabled(!enabled)}
-          >
-            {enabled ? "Sound ON" : "Sound OFF"}
-          </button>
-          <button
-            className="px-3 py-1 rounded-md border border-saga-gold/40 hover:bg-saga-gold/20 transition"
-            onClick={() => (playing ? pause() : resume())}
-          >
-            {playing ? "Pause" : "Resume"}
-          </button>
-          <button
-            onClick={async () => {
-              await fetch("/api/logout", { method: "POST" });
-              window.location.href = "/";
-            }}
-            className="px-3 py-1 rounded-md border border-saga-danger text-saga-danger hover:bg-saga-danger hover:text-saga-parchment transition"
-          >
-            Logout
-          </button>
-        </div>
-      </header>
+      {/* Controls */}
+      <div className="flex items-center justify-end mb-4 gap-2 text-xs">
+        <button
+          className={clsx(
+            "px-3 py-1 rounded-md border transition",
+            enabled
+              ? "border-saga-success text-saga-success hover:bg-saga-success/20"
+              : "border-saga-subtext text-saga-subtext hover:bg-saga-panel"
+          )}
+          onClick={() => setEnabled(!enabled)}
+        >
+          {enabled ? "Sound ON" : "Sound OFF"}
+        </button>
+        <button
+          className="px-3 py-1 rounded-md border border-saga-gold/40 hover:bg-saga-gold/20 transition"
+          onClick={() => (playing ? pause() : resume())}
+        >
+          {playing ? "Pause" : "Resume"}
+        </button>
+        <button
+          onClick={async () => {
+            await fetch("/api/logout", { method: "POST" });
+            window.location.href = "/";
+          }}
+          className="px-3 py-1 rounded-md border border-saga-danger text-saga-danger hover:bg-saga-danger hover:text-saga-parchment transition"
+        >
+          Logout
+        </button>
+      </div>
 
-      {/* Message Area */}
-      <div className="flex-1 bg-saga-panel rounded-2xl p-4 space-y-4 border border-saga-gold/20 shadow-glow overflow-y-auto min-h-[60vh]">
+      {/* Message Scroll Area */}
+      <div
+        className="
+          flex-1 relative rounded-2xl p-4 space-y-4 border border-saga-gold/30 shadow-glow overflow-y-auto min-h-[60vh]
+          bg-saga-parchment text-saga-ink
+        "
+      >
+        {/* parchment texture overlay */}
+        <div
+          className="absolute inset-0 pointer-events-none opacity-15 mix-blend-multiply rounded-2xl"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 30% 30%, rgba(0,0,0,0.05) 0%, transparent 70%), url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect width=%22100%22 height=%22100%22 fill=%22%23f5ecd6%22/%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2248%22 fill=%22none%22 stroke=%22%23e0d8b8%22 stroke-width=%221%22/%3E%3C/svg%3E')",
+            backgroundSize: "cover",
+          }}
+        />
+
         {messages.map((m, i) => (
           <div
             key={i}
             className={clsx(
-              "p-3 rounded-lg whitespace-pre-wrap max-w-[90%]",
+              "relative p-3 rounded-lg whitespace-pre-wrap max-w-[90%] z-10",
               m.role === "assistant"
-                ? "bg-saga-parchment text-saga-ink border border-saga-gold/40 shadow-md self-start"
-                : "bg-saga-parchmentDark text-saga-ink font-semibold border border-saga-gold/30 self-end ml-auto"
+                ? "bg-saga-parchmentDark/90 text-saga-ink border border-saga-gold/40 shadow-md self-start"
+                : "bg-saga-parchment text-saga-ink font-semibold border border-saga-gold/30 self-end ml-auto"
             )}
           >
             {m.content}
           </div>
         ))}
+
         {loading && (
-          <p className="text-sm text-saga-subtext italic">
+          <p className="text-sm text-saga-subtext italic z-10">
             Sága dips her quill in ink…
           </p>
         )}
@@ -148,7 +157,7 @@ export default function Chat() {
       </div>
 
       {/* Upload & Input */}
-      <div className="mt-4 flex flex-col sm:flex-row items-center gap-3">
+      <div className="mt-4 flex flex-col sm:flex-row items-center gap-3 z-10">
         <label className="cursor-pointer bg-saga-gold/20 text-saga-gold px-3 py-2 rounded-md border border-saga-gold/40 hover:bg-saga-gold/30 transition text-sm">
           {uploading ? "Uploading…" : "📜 Upload Character Sheet"}
           <input
