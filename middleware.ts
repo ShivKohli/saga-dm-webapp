@@ -1,15 +1,23 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-export function middleware(req: NextRequest) {
-  const session = req.cookies.get("sb-access-token")?.value; // Supabase stores the JWT here
-  const pathname = req.nextUrl.pathname;
+export async function middleware(req: NextRequest) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
-  // Redirect unauthenticated users trying to access /play
-  if (pathname.startsWith("/play") && !session) {
-    const redirectUrl = req.nextUrl.clone();
-    redirectUrl.pathname = "/";
-    return NextResponse.redirect(redirectUrl);
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const url = req.nextUrl.clone();
+
+  // If not logged in and trying to access /play
+  if (!session && url.pathname.startsWith("/play")) {
+    url.pathname = "/";
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
