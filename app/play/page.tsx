@@ -1,7 +1,7 @@
 import Chat from "@/components/Chat";
 import { AudioProvider } from "@/components/AudioQueue";
 
-export default function Page() {
+export default function PlayPage() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-black text-white">
       <AudioProvider>
