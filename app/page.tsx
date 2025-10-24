@@ -31,14 +31,38 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-black text-white">
-      <form onSubmit={handleLogin} className="flex flex-col gap-4 w-80">
-        <h1 className="text-2xl font-bold mb-2 text-center">Login to Saga DM</h1>
+    <main className="min-h-screen flex items-center justify-center bg-saga-gradient text-saga-text font-ui">
+      <form
+        onSubmit={handleLogin}
+        className="
+          card-saga
+          flex flex-col gap-4
+          w-80 sm:w-96
+          p-6
+          shadow-glow
+          border border-saga-accent/30
+        "
+      >
+        <h1 className="text-3xl font-saga text-center text-saga-accent mb-2">
+          Sága DM
+        </h1>
+        <p className="text-center text-saga-subtext mb-4">
+          Enter your credentials to begin your adventure
+        </p>
 
         <input
           type="email"
           placeholder="Email"
-          className="rounded-md p-2 bg-gray-900 border border-gray-600"
+          className="
+            bg-saga-panel
+            border border-saga-accent/30
+            rounded-md
+            p-2
+            focus:border-saga-accent
+            focus:ring-1 focus:ring-saga-accent
+            outline-none
+            placeholder-saga-subtext
+          "
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -47,17 +71,34 @@ export default function LoginPage() {
         <input
           type="password"
           placeholder="Password"
-          className="rounded-md p-2 bg-gray-900 border border-gray-600"
+          className="
+            bg-saga-panel
+            border border-saga-accent/30
+            rounded-md
+            p-2
+            focus:border-saga-accent
+            focus:ring-1 focus:ring-saga-accent
+            outline-none
+            placeholder-saga-subtext
+          "
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
         />
 
-        {error && <p className="text-red-500 text-sm">{error}</p>}
+        {error && (
+          <p className="text-saga-danger text-sm text-center">{error}</p>
+        )}
 
         <button
           type="submit"
-          className="bg-saga.accent hover:bg-saga.accent/80 transition-colors text-white py-2 rounded-md"
+          disabled={!email || !password}
+          className="
+            btn-saga
+            mt-2
+            disabled:opacity-50 disabled:cursor-not-allowed
+            font-semibold
+          "
         >
           Log In
         </button>
