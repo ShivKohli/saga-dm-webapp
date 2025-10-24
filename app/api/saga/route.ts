@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { extractVoiceSegments } from "@/lib/voices";
 import { queryKnowledgeBase } from "@/lib/vectorDB";
 import { sagaSystemPrompt } from "@/lib/systemPrompt";
+import { queryKnowledgeBase, getPlayerSheets } from "@/lib/vectorDB";
 
 export const runtime = "nodejs";
 
