@@ -2,11 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #__next {
-  height: 100%;
-  background: #0f0f14;
-  color: #e5e7eb;
+/* --- Global Saga DM Theme --- */
+
+:root {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+  background-color: #0B0B0D;
 }
 
-::-webkit-scrollbar { width: 10px; }
-::-webkit-scrollbar-thumb { background: #2c2c36; border-radius: 8px; }
+body {
+  @apply bg-saga-bg text-saga-text font-ui antialiased;
+}
+
+/* Scrollbar styling (Chrome/Edge/Safari) */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #1A1A1E;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #5B21B6;
+  border-radius: 4px;
+}
+
+/* Gradient background shimmer for fantasy tone */
+.bg-saga-gradient {
+  background: radial-gradient(
+    circle at 30% 20%,
+    rgba(91, 33, 182, 0.4),
+    rgba(11, 11, 13, 1)
+  );
+}
+
+/* Button & card helpers */
+.btn-saga {
+  @apply bg-saga-accent text-saga-text font-ui px-4 py-2 rounded-lg shadow-glow hover:bg-saga-accentDark transition;
+}
+
+.card-saga {
+  @apply bg-saga-panel p-4 rounded-2xl shadow-lg border border-saga-accent/20;
+}
