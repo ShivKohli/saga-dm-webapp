@@ -8,24 +8,23 @@ module.exports = {
     extend: {
       colors: {
         saga: {
-          // Main brand tones
-          accent: "#8B5CF6", // vivid arcane purple
-          accentDark: "#5B21B6", // deeper version for hover/active
-          gold: "#D6A354", // mystical ember highlight
-          bg: "#0B0B0D", // near-black background
-          panel: "#1A1A1E", // card/panel background
-          text: "#EAE7E0", // light parchment text
-          subtext: "#9CA3AF", // secondary text
-          danger: "#B91C1C", // for errors
-          success: "#22C55E", // for success states
+          bg: "#0B0B0D",          // dark dungeon background
+          panel: "#1A1A1E",       // elevated cards
+          accent: "#8B5CF6",      // arcane violet
+          accentDark: "#5B21B6",  // hover/active accent
+          gold: "#D6A354",        // mystical highlight
+          text: "#EAE7E0",        // parchment white
+          subtext: "#9CA3AF",     // secondary gray
+          danger: "#B91C1C",
+          success: "#22C55E",
         },
       },
       fontFamily: {
-        saga: ["'Cinzel'", "serif"], // medieval serif headline font (optional)
-        ui: ["'Inter'", "sans-serif"],
+        saga: ["'Cinzel'", "serif"], // for headings
+        ui: ["'Inter'", "sans-serif"], // for body
       },
       boxShadow: {
-        glow: "0 0 10px rgba(139, 92, 246, 0.4)", // subtle magical glow
+        glow: "0 0 8px rgba(139, 92, 246, 0.4)",
       },
     },
   },
