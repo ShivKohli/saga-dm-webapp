@@ -2,16 +2,14 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseAnonKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+// ✅ Always use NEXT_PUBLIC_ vars here — safe for browser use
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+// Optional: lightweight fallback guard for local dev
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn("⚠️ Missing Supabase environment variables — skipping init.");
+  console.warn("⚠️ Missing Supabase public environment variables.");
 }
 
 // ✅ Create client with browser session persistence
-export const supabase = supabaseUrl && supabaseAnonKey
-  ? createBrowserClient(supabaseUrl, supabaseAnonKey)
-  : (null as any);
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
