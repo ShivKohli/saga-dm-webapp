@@ -2,10 +2,10 @@
 export const dynamic = "force-dynamic";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
-export default function LandingPage() {
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -21,40 +21,47 @@ export default function LandingPage() {
     });
 
     if (error) {
-      setError(error.message);
-    } else {
-      router.push("/play"); // Redirects to chat after login
+      console.error("Login failed:", error.message);
+      setError("Invalid credentials. Please try again.");
+      return;
     }
+
+    console.log("✅ Login successful:", data);
+    router.push("/play");
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white">
-      <h1 className="text-4xl mb-4 font-bold">Sága DM</h1>
-      <p className="mb-6 text-gray-400">The AI Dungeon Master awaits...</p>
+    <main className="min-h-screen flex flex-col items-center justify-center bg-black text-white">
+      <form onSubmit={handleLogin} className="flex flex-col gap-4 w-80">
+        <h1 className="text-2xl font-bold mb-2 text-center">Login to Saga DM</h1>
 
-      <form onSubmit={handleLogin} className="flex flex-col gap-3 w-72">
         <input
-          className="p-2 rounded bg-gray-800 border border-gray-600"
-          placeholder="Email"
           type="email"
+          placeholder="Email"
+          className="rounded-md p-2 bg-gray-900 border border-gray-600"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          required
         />
+
         <input
-          className="p-2 rounded bg-gray-800 border border-gray-600"
-          placeholder="Password"
           type="password"
+          placeholder="Password"
+          className="rounded-md p-2 bg-gray-900 border border-gray-600"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          required
         />
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+
+        {error && <p className="text-red-500 text-sm">{error}</p>}
+
         <button
           type="submit"
-          className="p-2 mt-2 bg-saga.accent text-white rounded hover:bg-saga.accent/80"
+          className="bg-saga.accent hover:bg-saga.accent/80 transition-colors text-white py-2 rounded-md"
         >
-          Login
+          Log In
         </button>
       </form>
-    </div>
+    </main>
   );
 }
