@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
-import { limitRequest } from "@/lib/ratelimit"; // 🆕 add rate limiter
+import { z } from "zod"; // 🧱 Zod for validation
+import { limitRequest } from "@/lib/ratelimit"; // 🧱 Upstash rate limiter
 
 export const runtime = "nodejs";
 
@@ -11,9 +12,20 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+/* 🧩 Zod schema for file metadata */
+const FileSchema = z.object({
+  name: z
+    .string()
+    .min(1, "File name is missing.")
+    .regex(/\.(pdf|docx|txt)$/i, "Unsupported file type (only PDF, DOCX, TXT)."),
+  size: z.number().max(10 * 1024 * 1024, "File too large (max 10MB)."),
+});
+
 export async function POST(req: Request) {
   try {
-    // 🧱 RATE-LIMIT CHECK ────────────────────────────────
+    /* ───────────────────────────────────────────────
+       🧱 RATE-LIMIT CHECK (Upstash Redis)
+    ─────────────────────────────────────────────── */
     const ip =
       req.headers.get("x-forwarded-for") ||
       req.headers.get("x-real-ip") ||
@@ -34,34 +46,35 @@ export async function POST(req: Request) {
 
     console.log(`📨 Upload request received (remaining ${remaining} for ${ip})`);
 
-    // 🧾 Parse uploaded form data
+    /* ───────────────────────────────────────────────
+       🧩 PARSE & VALIDATE FORM INPUT (Zod)
+    ─────────────────────────────────────────────── */
     const formData = await req.formData();
-    const file = formData.get("file") as File;
+    const file = formData.get("file") as File | null;
+
     if (!file) {
-      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+      return NextResponse.json({ error: "No file uploaded." }, { status: 400 });
     }
 
-    console.log(`📥 Received file: ${file.name} (${file.type})`);
-
-    // 🛡️ FILE VALIDATION ────────────────────────────────
-    const MAX_MB = 10;
-    const allowedExt = /\.(pdf|docx|txt)$/i;
-
-    if (!allowedExt.test(file.name)) {
+    // Validate metadata using Zod
+    const meta = { name: file.name, size: file.size };
+    const parsed = FileSchema.safeParse(meta);
+    if (!parsed.success) {
+      console.warn("⚠️ Invalid upload:", parsed.error.flatten());
       return NextResponse.json(
-        { error: "Unsupported file type. Please upload PDF, DOCX, or TXT." },
+        {
+          error: "Invalid file upload.",
+          details: parsed.error.flatten(),
+        },
         { status: 400 }
       );
     }
 
-    if (file.size > MAX_MB * 1024 * 1024) {
-      return NextResponse.json(
-        { error: `File too large (max ${MAX_MB}MB).` },
-        { status: 413 }
-      );
-    }
+    console.log(`📥 Received valid file: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
 
-    // 🧠 Lazy-load pdf-parse and mammoth ONLY when needed
+    /* ───────────────────────────────────────────────
+       🧠 Extract Text Content
+    ─────────────────────────────────────────────── */
     const pdf = await import("pdf-parse");
     const mammoth = await import("mammoth");
 
@@ -69,7 +82,6 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(arrayBuffer);
     let text = "";
 
-    // Extract text depending on file type
     if (file.name.endsWith(".pdf")) {
       const pdfData = await pdf.default(buffer);
       text = pdfData.text;
@@ -89,18 +101,19 @@ export async function POST(req: Request) {
 
     console.log(`🧠 Extracted ${text.length} characters from ${file.name}`);
 
-    // 🔍 Truncate overly long text to keep embeddings under token limit
+    /* ───────────────────────────────────────────────
+       🧬 Generate Embedding (OpenAI)
+    ─────────────────────────────────────────────── */
     const truncated = text.slice(0, 8000);
-
-    // 🧬 Generate embedding
     const embedRes = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: truncated,
     });
-
     const embedding = embedRes.data[0].embedding;
 
-    // 🗃️ Insert into Supabase
+    /* ───────────────────────────────────────────────
+       🗃️ Store in Supabase
+    ─────────────────────────────────────────────── */
     const { data, error } = await supabase
       .from("player_sheets")
       .insert({
@@ -114,7 +127,7 @@ export async function POST(req: Request) {
     if (error) {
       console.error("❌ Supabase insert error:", error);
       return NextResponse.json(
-        { error: "Failed to save to Supabase" },
+        { error: "Failed to save to Supabase." },
         { status: 500 }
       );
     }
