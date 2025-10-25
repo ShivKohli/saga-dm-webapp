@@ -4,7 +4,6 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { limitRequest } from "@/lib/ratelimit";
 import { env } from "@/lib/env";
-// ✅ Top of /app/api/upload-character/route.ts
 import pdf from "pdf-parse";
 import mammoth from "mammoth";
 
@@ -47,12 +46,14 @@ export async function POST(req: Request) {
     ─────────────────────────────────────────────── */
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
+
     if (!file) {
       return NextResponse.json({ error: "No file uploaded." }, { status: 400 });
     }
 
     const meta = { name: file.name, size: file.size };
     const parsed = FileSchema.safeParse(meta);
+
     if (!parsed.success) {
       console.warn("⚠️ Invalid upload:", parsed.error.flatten());
       return NextResponse.json(
@@ -68,20 +69,26 @@ export async function POST(req: Request) {
     /* ───────────────────────────────────────────────
        🧠 Extract Text Content
     ─────────────────────────────────────────────── */
-
-
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     let text = "";
 
-    if (file.name.endsWith(".pdf")) {
-      const pdfData = await pdf.default(buffer);
-      text = pdfData.text;
-    } else if (file.name.endsWith(".docx")) {
-      const result = await mammoth.extractRawText({ buffer });
-      text = result.value;
-    } else if (file.name.endsWith(".txt")) {
-      text = buffer.toString("utf8");
+    try {
+      if (file.name.endsWith(".pdf")) {
+        const pdfData = await pdf(buffer); // ✅ no `.default` here
+        text = pdfData.text;
+      } else if (file.name.endsWith(".docx")) {
+        const result = await mammoth.extractRawText({ buffer });
+        text = result.value;
+      } else if (file.name.endsWith(".txt")) {
+        text = buffer.toString("utf8");
+      }
+    } catch (parseErr) {
+      console.error("❌ File parse error:", parseErr);
+      return NextResponse.json(
+        { error: "Could not extract text from this file." },
+        { status: 400 }
+      );
     }
 
     if (!text.trim()) {
@@ -111,6 +118,7 @@ export async function POST(req: Request) {
     // Extract user_id from Authorization header if provided
     const authHeader = req.headers.get("authorization");
     let userId: string | null = null;
+
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "").trim();
       try {
