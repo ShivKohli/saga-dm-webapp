@@ -4,6 +4,9 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { limitRequest } from "@/lib/ratelimit";
 import { env } from "@/lib/env";
+// ✅ Top of /app/api/upload-character/route.ts
+import pdf from "pdf-parse";
+import mammoth from "mammoth";
 
 export const runtime = "nodejs";
 
@@ -65,8 +68,7 @@ export async function POST(req: Request) {
     /* ───────────────────────────────────────────────
        🧠 Extract Text Content
     ─────────────────────────────────────────────── */
-    const pdf = await import "pdf-parse";
-    const mammoth = await import "mammoth";
+
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
