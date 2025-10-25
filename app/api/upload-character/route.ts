@@ -4,7 +4,6 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { limitRequest } from "@/lib/ratelimit";
 import { env } from "@/lib/env";
-import pdf from "pdf-parse";
 import mammoth from "mammoth";
 
 export const runtime = "nodejs";
@@ -23,7 +22,7 @@ const FileSchema = z.object({
 export async function POST(req: Request) {
   try {
     /* ───────────────────────────────────────────────
-       🧱 RATE-LIMIT CHECK (Upstash Redis)
+       🧱 RATE-LIMIT CHECK
     ─────────────────────────────────────────────── */
     const ip =
       req.headers.get("x-forwarded-for") ||
@@ -67,7 +66,7 @@ export async function POST(req: Request) {
     );
 
     /* ───────────────────────────────────────────────
-       🧠 Extract Text Content
+       🧠 Extract Text Content (Vercel-safe)
     ─────────────────────────────────────────────── */
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -75,7 +74,9 @@ export async function POST(req: Request) {
 
     try {
       if (file.name.endsWith(".pdf")) {
-        const pdfData = await pdf(buffer); // ✅ no `.default` here
+        // ✅ Lazy import pdf-parse only when needed
+        const { default: pdf } = await import("pdf-parse");
+        const pdfData = await pdf(buffer);
         text = pdfData.text;
       } else if (file.name.endsWith(".docx")) {
         const result = await mammoth.extractRawText({ buffer });
@@ -115,7 +116,6 @@ export async function POST(req: Request) {
     ─────────────────────────────────────────────── */
     const supabase = createClient(env.SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Extract user_id from Authorization header if provided
     const authHeader = req.headers.get("authorization");
     let userId: string | null = null;
 
@@ -137,7 +137,7 @@ export async function POST(req: Request) {
         filename: file.name,
         content: truncated,
         embedding,
-        user_id: userId, // ✅ attach user for RLS
+        user_id: userId,
       })
       .select()
       .single();
