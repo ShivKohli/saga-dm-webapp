@@ -65,8 +65,8 @@ export async function POST(req: Request) {
     /* ───────────────────────────────────────────────
        🧠 Extract Text Content
     ─────────────────────────────────────────────── */
-    const pdf = await import("pdf-parse");
-    const mammoth = await import("mammoth");
+    const pdf = await import "pdf-parse";
+    const mammoth = await import "mammoth";
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
