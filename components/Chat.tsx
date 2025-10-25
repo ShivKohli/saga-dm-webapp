@@ -11,7 +11,7 @@ export default function Chat() {
     {
       role: "assistant",
       content:
-        "Welcome, adventurers. I am Sága, the AI Dungeon Master — keeper of all stories ever told, and those yet to unfold.\nTell me how many heroes stand before me (1–4), and have each introduce themselves:\nName, Race, Class, Brief Backstory, Current HP, and Starting Items.\nWhen all have spoken, I shall inscribe your names in the Book of Lore and begin your adventure.",
+        "Welcome, adventurers. I am Sága, the AI Dungeon Master — keeper of all stories ever told, and those yet to unfold.\nType 'Begin Campaign.' to start.",
     },
   ]);
   const [input, setInput] = useState("");
