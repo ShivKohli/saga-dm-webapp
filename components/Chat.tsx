@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useAudioQueue } from "./AudioQueue";
+import { supabase } from "@/lib/supabaseClient";
 import clsx from "clsx";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -19,18 +20,23 @@ export default function Chat() {
   const { enqueue, enabled, setEnabled, pause, resume, playing } = useAudioQueue();
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
+  // ───────────────────────────────────────────────
+  // 🧠 Send chat messages to Saga
+  // ───────────────────────────────────────────────
   const send = async () => {
     if (!input.trim() || loading) return;
     const userMsg: Msg = { role: "user", content: input.trim() };
     setMessages((m) => [...m, userMsg]);
     setInput("");
     setLoading(true);
+
     try {
       const res = await fetch("/api/saga", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ history: messages, userMessage: userMsg.content }),
       });
+
       const data = await res.json();
       if (data?.text)
         setMessages((m) => [...m, { role: "assistant", content: data.text }]);
@@ -53,21 +59,43 @@ export default function Chat() {
     }
   };
 
+  // ───────────────────────────────────────────────
+  // 📜 Handle Character Sheet Upload (RLS token)
+  // ───────────────────────────────────────────────
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
+
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/upload-character", { method: "POST", body: formData });
+
+      // 🧾 Get Supabase access token (for RLS user_id mapping)
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const res = await fetch("/api/upload-character", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session?.access_token ?? ""}`,
+        },
+        body: formData,
+      });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Upload failed");
+
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: `📜 I have received **${file.name}**.` },
+        {
+          role: "assistant",
+          content: `📜 I have received your character sheet **${file.name}** and will keep it in mind during our adventure.`,
+        },
       ]);
-    } catch {
+    } catch (err) {
+      console.error("Upload error:", err);
       setMessages((m) => [
         ...m,
         {
@@ -81,10 +109,16 @@ export default function Chat() {
     }
   };
 
+  // ───────────────────────────────────────────────
+  // 🔁 Auto-scroll
+  // ───────────────────────────────────────────────
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
+  // ───────────────────────────────────────────────
+  // 💬 UI Layout
+  // ───────────────────────────────────────────────
   return (
     <div className="w-full max-w-3xl mx-auto flex flex-col font-ui">
       {/* Controls */}
@@ -177,7 +211,7 @@ export default function Chat() {
               focus:border-saga-gold focus:ring-1 focus:ring-saga-gold
               placeholder-saga-subtext text-saga-ink
             "
-            placeholder='Speak to Sága…'
+            placeholder="Speak to Sága…"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && send()}
