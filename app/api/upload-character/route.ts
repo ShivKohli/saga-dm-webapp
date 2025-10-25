@@ -1,17 +1,13 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
-import { z } from "zod"; // 🧱 Zod for validation
-import { limitRequest } from "@/lib/ratelimit"; // 🧱 Upstash rate limiter
+import { z } from "zod";
+import { limitRequest } from "@/lib/ratelimit";
 import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const supabase = createClient(
-  env.SUPABASE_URL!,
-  env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
 /* 🧩 Zod schema for file metadata */
 const FileSchema = z.object({
@@ -33,14 +29,10 @@ export async function POST(req: Request) {
       "anonymous";
 
     const { success, remaining } = await limitRequest(ip.toString());
-
     if (!success) {
       console.warn(`🚫 Upload rate limit exceeded for IP: ${ip}`);
       return NextResponse.json(
-        {
-          error:
-            "📜 Slow down, adventurer! You are uploading too many parchments too quickly.",
-        },
+        { error: "📜 Slow down, adventurer! Too many uploads too quickly." },
         { status: 429 }
       );
     }
@@ -52,26 +44,23 @@ export async function POST(req: Request) {
     ─────────────────────────────────────────────── */
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-
     if (!file) {
       return NextResponse.json({ error: "No file uploaded." }, { status: 400 });
     }
 
-    // Validate metadata using Zod
     const meta = { name: file.name, size: file.size };
     const parsed = FileSchema.safeParse(meta);
     if (!parsed.success) {
       console.warn("⚠️ Invalid upload:", parsed.error.flatten());
       return NextResponse.json(
-        {
-          error: "Invalid file upload.",
-          details: parsed.error.flatten(),
-        },
+        { error: "Invalid file upload.", details: parsed.error.flatten() },
         { status: 400 }
       );
     }
 
-    console.log(`📥 Received valid file: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
+    console.log(
+      `📥 Received valid file: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`
+    );
 
     /* ───────────────────────────────────────────────
        🧠 Extract Text Content
@@ -113,14 +102,32 @@ export async function POST(req: Request) {
     const embedding = embedRes.data[0].embedding;
 
     /* ───────────────────────────────────────────────
-       🗃️ Store in Supabase
+       🗃️ Store in Supabase (RLS-ready)
     ─────────────────────────────────────────────── */
+    const supabase = createClient(env.SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!);
+
+    // Extract user_id from Authorization header if provided
+    const authHeader = req.headers.get("authorization");
+    let userId: string | null = null;
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "").trim();
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser(token);
+        userId = user?.id ?? null;
+      } catch (authErr) {
+        console.warn("⚠️ Failed to resolve user from token:", authErr);
+      }
+    }
+
     const { data, error } = await supabase
       .from("player_sheets")
       .insert({
         filename: file.name,
         content: truncated,
         embedding,
+        user_id: userId, // ✅ attach user for RLS
       })
       .select()
       .single();
@@ -147,4 +154,5 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+}
 }
